@@ -1,0 +1,11 @@
+const c=document.getElementById('game'),x=c.getContext('2d'),scoreEl=document.getElementById('score'),msg=document.getElementById('message');
+let state='ready',score=0,outs=0,runner=0,ball={x:450,y:360,vx:0,vy:0},bat=0;
+function draw(){x.clearRect(0,0,900,520);x.fillStyle='#23834d';x.fillRect(0,0,900,520);x.fillStyle='#cfa56a';x.beginPath();x.moveTo(450,90);x.lineTo(790,300);x.lineTo(650,500);x.lineTo(250,500);x.lineTo(110,300);x.closePath();x.fill();x.fillStyle='#187341';x.beginPath();x.arc(450,305,110,0,Math.PI*2);x.fill();
+plate(150,300);plate(750,300);player(150,275,runner===0?'#fff':'#ffd34d');player(750,275,'#ffd34d');x.fillStyle='#fff';x.fillRect(440,365,70,8);
+x.fillStyle='#20252b';x.beginPath();x.arc(ball.x,ball.y,9,0,Math.PI*2);x.fill();x.save();x.translate(450,375);x.rotate(bat);x.fillStyle='#8b5a2b';x.fillRect(-8,-70,16,110);x.restore();scoreEl.textContent=score+' - '+outs;x.fillStyle='#fff';x.font='bold 22px system-ui';x.fillText('PLATE RUSH',24,38)}
+function plate(a,b){x.fillStyle='#eee';x.fillRect(a-30,b-18,60,36);x.strokeStyle='#333';x.strokeRect(a-30,b-18,60,36)}
+function player(a,b,col){x.fillStyle=col;x.beginPath();x.arc(a,b-25,15,0,Math.PI*2);x.fill();x.fillRect(a-12,b-10,24,40)}
+function hit(){if(state==='ready'||state==='result'){state='play';score=0;outs=0;msg.textContent='¡Batea y corre entre las placas!'}if(state==='play'){bat=-.8;ball={x:450,y:360,vx:(Math.random()>.5?1:-1)*(5+Math.random()*3),vy:-7};state='run';msg.textContent='¡Corre!'}}
+function run(){if(state==='run'){runner=1;score++;msg.textContent='¡Llegaste a la otra placa! Toca REGRESAR.';state='return'}}
+function back(){if(state==='return'){runner=0;msg.textContent='¡Punto! Prepárate para el próximo lanzamiento.';state='play';if(score>=5){state='result';msg.textContent='🏆 ¡Victoria! Toca BATEAR para jugar otra vez.'}}}
+function loop(){if(ball.y>70&&state==='run'){ball.x+=ball.vx;ball.y+=ball.vy;ball.vy+=.25;if(ball.y<110)state='return'}draw();requestAnimationFrame(loop)}document.getElementById('hit').onclick=hit;document.getElementById('run').onclick=run;document.getElementById('back').onclick=back;loop();
