@@ -23,3 +23,37 @@ function overlay(){if(state==="menu"||state==="result"){ctx.fillStyle="#020805dd
 function draw(){ctx.clearRect(0,0,900,560);ctx.save();if(shake>0){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.86}field();drawBall();ctx.save();ctx.translate(450,425);ctx.rotate(-.75+swing*.95);ctx.fillStyle="#8b5a30";ctx.fillRect(-8,-92,16,104);ctx.fillStyle="#e0b36b";ctx.fillRect(-11,-98,22,12);ctx.restore();if(contact){ctx.fillStyle="#fff";ctx.font="1000 26px system-ui";ctx.fillText("PERFECT!",392,260)}overlay();ctx.restore();for(let p of particles){ctx.globalAlpha=Math.max(0,p.life/60);ctx.fillStyle="#fff";ctx.fillRect(p.x,p.y,5,5);p.x+=p.vx;p.y+=p.vy;p.vy+=.08;p.life--}ctx.globalAlpha=1;if(flash>0){ctx.fillStyle="rgba(255,255,255,"+flash*.12+")";ctx.fillRect(0,0,900,560);flash*=.82}}
 function loop(t){let dt=Math.min(32,t-last||16);last=t;if(state==="play"&&ball.active){ball.x+=ball.vx*dt/16;ball.y+=ball.vy*dt/16;ball.vy+=.04*dt/16;if(ball.y>540){ball.active=false;message.textContent="⚾ PELOTA FUERA • TOCA BATEAR"}}if(swing>0)swing=Math.max(0,swing-.09*dt/16);ui();draw();requestAnimationFrame(loop)}
 hitBtn.onclick=hit;runBtn.onclick=run;backBtn.onclick=back;canvas.addEventListener("pointerdown",e=>{if(e.pointerType==="touch")hit()});ui();draw();requestAnimationFrame(loop);
+// Enhanced baseball presentation layer
+const _baseLoop=loop;
+function drawEnhancedScene(){
+  // stadium depth and crowd
+  ctx.save();
+  ctx.fillStyle="#16231d";ctx.fillRect(0,0,900,92);
+  for(let i=0;i<30;i++){ctx.fillStyle=i%3===0?"#d7ded9":"#718078";ctx.beginPath();ctx.arc(18+i*31,62+(i%4)*4,5,0,Math.PI*2);ctx.fill()}
+  // perspective foul lines
+  ctx.strokeStyle="#fff";ctx.globalAlpha=.55;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(450,105);ctx.lineTo(95,540);ctx.moveTo(450,105);ctx.lineTo(805,540);ctx.stroke();ctx.globalAlpha=1;
+  // pitcher's mound ring
+  ctx.fillStyle="#c58e56";ctx.beginPath();ctx.ellipse(450,190,58,27,0,0,Math.PI*2);ctx.fill();
+  player(450,178,"#e5c84e","#493a0d",false);
+  // batter body and legs
+  player(450,418,"#f0f4f1","#173f29",true);
+  ctx.strokeStyle="#f0c78f";ctx.lineWidth=9;ctx.beginPath();ctx.moveTo(435,400);ctx.lineTo(414,386);ctx.moveTo(465,400);ctx.lineTo(487,386);ctx.stroke();
+  // animated bat
+  ctx.save();ctx.translate(447,397);ctx.rotate(-.95+swing*1.55);ctx.fillStyle="#9a6737";ctx.fillRect(-7,-94,14,104);ctx.fillStyle="#e1b26a";ctx.fillRect(-10,-101,20,12);ctx.restore();
+  // bases + runner
+  plate(450,505,1.05);plate(735,325,.85);plate(165,325,.85);plate(450,125,.8);
+  if(runner){ctx.strokeStyle="#fff";ctx.lineWidth=4;ctx.beginPath();ctx.arc(735,320,30,0,Math.PI*2);ctx.stroke();}
+  // pitch guide / contact zone
+  ctx.strokeStyle="#ffffff55";ctx.lineWidth=2;ctx.setLineDash([7,7]);ctx.strokeRect(380,325,140,80);ctx.setLineDash([]);
+  ctx.restore();
+}
+const _drawOriginal=draw;
+draw=function(){
+  _drawOriginal();
+  if(state!=="menu"&&state!=="result"){
+    // overlay enhanced depth without replacing existing game HUD
+    drawEnhancedScene();
+    drawBall();
+    if(contact){ctx.save();ctx.textAlign="center";ctx.font="1000 30px system-ui";ctx.fillStyle="#fff";ctx.fillText("PERFECT HIT!",450,285);ctx.restore()}
+  }
+};
