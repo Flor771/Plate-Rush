@@ -1,63 +1,46 @@
-const canvas=document.getElementById('game');
-const ctx=canvas.getContext('2d');
-const scoreEl=document.getElementById('score');
-const msg=document.getElementById('message');
-const hitBtn=document.getElementById('hit');
-const runBtn=document.getElementById('run');
-const backBtn=document.getElementById('back');
+const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
+const scoreEl=document.getElementById("score"),message=document.getElementById("message");
+const hitBtn=document.getElementById("hit"),runBtn=document.getElementById("run"),backBtn=document.getElementById("back");
+let state="menu",score=0,outs=0,round=1,streak=0,runner=0,swing=0,shake=0,last=0;
+let ball={x:450,y:105,vx:0,vy:0,r:8,active:false},particles=[],audio=null;
 
-let state='ready',score=0,outs=0,streak=0,round=1,runner=0,shake=0,flash=0;
-let ball={x:450,y:120,vx:0,vy:0,r:9,active:false};
-let swing=0,particles=[],last=performance.now(),audioCtx=null;
-
-function resetGame(){state='play';score=0;outs=0;streak=0;round=1;runner=0;particles=[];msg.textContent='¡Prepárate! Batea cuando llegue la pelota.';updateUI();}
-function updateUI(){scoreEl.textContent=score+' PTS  •  '+outs+'/3 OUT';}
-function beep(freq=440,dur=.07){try{audioCtx??=new(window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=freq;o.type='square';g.gain.value=.035;o.connect(g);g.connect(audioCtx.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);o.stop(audioCtx.currentTime+dur)}catch{}}
-function burst(px,py,n=12){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=1+Math.random()*4;particles.push({x:px,y:py,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:35+Math.random()*20});}}
+function ui(){scoreEl.textContent=score+" PTS • "+outs+"/3 OUT";document.body.dataset.state=state}
+function beep(freq,dur){try{audio=audio||new(window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=freq;o.type="sine";g.gain.value=.025;o.connect(g);g.connect(audio.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+dur);o.stop(audio.currentTime+dur)}catch(e){}}
+function serve(){ball={x:450,y:105,vx:(Math.random()<.5?-1:1)*(3+Math.random()*2),vy:2.4,r:8,active:true}}
+function reset(){state="play";score=0;outs=0;round=1;streak=0;runner=0;particles=[];message.textContent="Batea cuando la pelota entre en la zona.";serve();ui();beep(620,.08)}
+function burst(px,py,n){for(let j=0;j<n;j++){const a=Math.random()*Math.PI*2,sp=1+Math.random()*4;particles.push({x:px,y:py,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:35+Math.random()*20})}}
 function hit(){
- if(state==='ready'||state==='result') resetGame();
- if(state!=='play') return;
- const timing=Math.abs(ball.x-450);
- const good=timing<75;
- swing=1; beep(good?720:300,.1);
- if(good){score+=2;streak++;burst(ball.x,ball.y,18);flash=1;shake=7;msg.textContent=streak>1?'🔥 ¡Racha de '+streak+'! ¡Corre!':'💥 ¡Buen batazo! ¡Corre a la otra placa!';}
- else {outs++;streak=0;shake=5;msg.textContent='❌ ¡Fallaste! Otro lanzamiento.';beep(180,.12);}
- updateUI();
- if(outs>=3){state='result';msg.textContent='🏁 Fin de ronda. Toca BATEAR para jugar otra vez.';return;}
- ball={x:450,y:120,vx:(Math.random()>.5?1:-1)*(4+Math.random()*2),vy:2.2,r:9,active:true};
- state=good?'run':'play';
+ if(state==="menu"||state==="result")reset();
+ if(state!=="play")return;
+ const good=Math.abs(ball.x-450)<72;
+ swing=1;ball.active=false;
+ if(good){score+=2;streak++;burst(450,105,22);message.textContent=streak>1?"🔥 RACHA x"+streak+" • ¡CORRE!":"💥 ¡BATAZO LIMPIO! • ¡CORRE!";beep(740,.11);state="run"}
+ else{outs++;streak=0;message.textContent=outs>=3?"🏁 TRES OUT • FIN DEL JUEGO":"❌ ¡FALLASTE! • SIGUIENTE LANZAMIENTO";beep(180,.12);state=outs>=3?"result":"play";setTimeout(()=>{if(state==="play")serve()},650)}
+ ui()
 }
-function run(){
- if(state==='run'){runner=1;score+=1;streak++;burst(750,300,10);beep(880,.08);msg.textContent='🏃 ¡Llegaste! Toca REGRESAR para volver a la base.';state='return';updateUI();}
+function run(){if(state==="run"){runner=1;score++;burst(755,300,12);message.textContent="🏃 ¡LLEGASTE! • REGRESA A LA PLACA";beep(880,.08);state="return";ui()}}
+function back(){if(state==="return"){runner=0;round++;score++;message.textContent="⚡ ¡CARRERA COMPLETADA! • PRÓXIMO LANZAMIENTO";beep(620,.06);state="play";ui();setTimeout(()=>{if(state==="play")serve()},500)}}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill()}
+function plate(px,py){ctx.save();ctx.translate(px,py);ctx.rotate(.16);ctx.fillStyle="#fff";ctx.strokeStyle="#bfc9c4";ctx.lineWidth=3;rr(-34,-19,68,38,8);ctx.stroke();ctx.restore()}
+function player(px,py,col,active){ctx.save();ctx.translate(px,py);ctx.fillStyle="#0003";ctx.beginPath();ctx.ellipse(0,18,24,7,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=col;ctx.beginPath();ctx.arc(0,-30,15,0,Math.PI*2);ctx.fill();rr(-12,-15,24,39,7);ctx.fillRect(-21,0,9,25);ctx.fillRect(12,0,9,25);if(active){ctx.strokeStyle="#fff";ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,-30,22,0,Math.PI*2);ctx.stroke()}ctx.restore()}
+function field(){
+ctx.fillStyle="#0d6938";ctx.fillRect(0,0,900,520);
+for(let j=0;j<10;j++){ctx.fillStyle=j%2?"#11713c":"#0d6938";ctx.fillRect(0,j*52,900,52)}
+ctx.fillStyle="#d3a36a";ctx.beginPath();ctx.moveTo(450,65);ctx.lineTo(820,300);ctx.lineTo(670,520);ctx.lineTo(230,520);ctx.lineTo(80,300);ctx.closePath();ctx.fill();
+ctx.fillStyle="#b8834d";ctx.beginPath();ctx.arc(450,310,115,0,Math.PI*2);ctx.fill();
+ctx.strokeStyle="#ffffff88";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(450,70);ctx.lineTo(770,300);ctx.lineTo(645,500);ctx.moveTo(450,70);ctx.lineTo(130,300);ctx.lineTo(255,500);ctx.stroke();
+plate(140,300);plate(760,300);player(140,275,"#f5f7fa",runner===0);player(760,275,"#ffd447",runner===1)
 }
-function back(){
- if(state==='return'){runner=0;round++;ball.active=false;state='play';beep(620,.06);msg.textContent='⚾ ¡Punto! Próximo lanzamiento.';setTimeout(()=>{if(state==='play')serve();},450);}
-}
-function serve(){ball={x:450,y:120,vx:(Math.random()>.5?1:-1)*(3.5+Math.random()*2),vy:2.4,r:9,active:true};}
-function plate(px,py){ctx.save();ctx.translate(px,py);ctx.rotate(Math.PI/8);ctx.fillStyle='#fff';ctx.strokeStyle='#c9d0d6';ctx.lineWidth=3;ctx.beginPath();ctx.roundRect(-34,-20,68,40,8);ctx.fill();ctx.stroke();ctx.restore();}
-function player(px,py,col,active=false){ctx.save();ctx.translate(px,py);ctx.fillStyle=col;ctx.beginPath();ctx.arc(0,-28,16,0,Math.PI*2);ctx.fill();ctx.fillRect(-13,-13,26,42);ctx.fillRect(-22,0,9,26);ctx.fillRect(13,0,9,26);if(active){ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,-28,21,0,Math.PI*2);ctx.stroke();}ctx.restore();}
-function drawField(){
- ctx.fillStyle='#14733e';ctx.fillRect(0,0,900,520);
- for(let i=0;i<10;i++){ctx.fillStyle=i%2?'#167b42':'#13733d';ctx.fillRect(0,i*52,900,52);}
- ctx.fillStyle='#d7aa72';ctx.beginPath();ctx.moveTo(450,75);ctx.lineTo(815,300);ctx.lineTo(665,515);ctx.lineTo(235,515);ctx.lineTo(85,300);ctx.closePath();ctx.fill();
- ctx.fillStyle='#b88755';ctx.beginPath();ctx.arc(450,305,112,0,Math.PI*2);ctx.fill();
- ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(450,85);ctx.lineTo(760,300);ctx.lineTo(640,500);ctx.moveTo(450,85);ctx.lineTo(140,300);ctx.lineTo(260,500);ctx.stroke();
- plate(145,300);plate(755,300);
- player(145,275,'#f4f7fb',runner===0);player(755,275,'#ffd447',runner===1);
- ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(450,365,38,9,0,0,Math.PI*2);ctx.fill();
-}
+function overlay(){
+ctx.fillStyle="#0008";rr(18,18,305,58,16);ctx.fillStyle="#fff";ctx.font="900 21px system-ui";ctx.fillText("PLATE RUSH",34,47);ctx.font="700 11px system-ui";ctx.fillStyle="#d5e4db";ctx.fillText("RONDA "+round+" • THE DOMINICAN STREET GAME",34,66);
+if(state==="menu"||state==="result"){ctx.fillStyle="#06110ce8";rr(0,0,900,520,0);ctx.textAlign="center";ctx.fillStyle="#fff";ctx.font="900 58px system-ui";ctx.fillText("PLATE RUSH",450,205);ctx.font="700 18px system-ui";ctx.fillStyle="#b9d8c5";ctx.fillText("THE DOMINICAN STREET GAME",450,238);ctx.font="900 22px system-ui";ctx.fillStyle="#fff";ctx.fillText(state==="menu"?"TOCA BATEAR PARA JUGAR":"PUNTUACIÓN: "+score,450,315);ctx.font="600 14px system-ui";ctx.fillStyle="#91aa9d";ctx.fillText(state==="result"?"Toca BATEAR para una nueva partida":"Batea • Corre • Regresa",450,350);ctx.textAlign="left"}}
 function draw(){
- ctx.clearRect(0,0,900,520);ctx.save();if(shake>0){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.86;}
- drawField();
- if(ball.active){ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#cdd4d8';ctx.stroke();}
- ctx.save();ctx.translate(450,380);ctx.rotate(-.8+swing*.95);ctx.fillStyle='#9a632f';ctx.fillRect(-8,-76,16,105);ctx.fillStyle='#e5b56c';ctx.fillRect(-10,-82,20,13);ctx.restore();
- ctx.fillStyle='rgba(0,0,0,.48)';ctx.roundRect(18,18,250,62,18);ctx.fill();ctx.fillStyle='#fff';ctx.font='800 22px system-ui';ctx.fillText('PLATE RUSH',34,48);ctx.font='600 13px system-ui';ctx.fillStyle='#d7e5dc';ctx.fillText('RONDA '+round+'  •  LA CALLE DOMINICANA',34,68);
- if(flash>0){ctx.fillStyle='rgba(255,255,255,'+(flash*.22)+')';ctx.fillRect(0,0,900,520);flash*=.86;}
- ctx.restore();
- for(const p of particles){ctx.fillStyle='rgba(255,255,255,'+Math.max(0,p.life/55)+')';ctx.fillRect(p.x,p.y,5,5);}
+ctx.clearRect(0,0,900,520);ctx.save();if(shake>0){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.88}
+field();
+if(ball.active){ctx.fillStyle="#fff";ctx.shadowBlur=12;ctx.shadowColor="#fff";ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0}
+ctx.save();ctx.translate(450,382);ctx.rotate(-.72+swing*.9);ctx.fillStyle="#87572e";ctx.fillRect(-8,-78,16,106);ctx.fillStyle="#e3b46a";ctx.fillRect(-10,-84,20,12);ctx.restore();overlay();ctx.restore();
+for(const p of particles){ctx.globalAlpha=Math.max(0,p.life/55);ctx.fillStyle="#fff";ctx.fillRect(p.x,p.y,5,5);p.x+=p.vx;p.y+=p.vy;p.vy+=.08;p.life--}ctx.globalAlpha=1
 }
-function loop(t){const dt=Math.min(32,t-last);last=t;if(state==='run'&&ball.active){ball.x+=ball.vx*dt/16;ball.y+=ball.vy*dt/16;ball.vy+=.06*dt/16;if(ball.y>500){ball.active=false;state='play';msg.textContent='⚾ Pelota fuera. Toca BATEAR.';}}
- if(swing>0)swing=Math.max(0,swing-.08*dt/16);for(const p of particles){p.x+=p.vx;p.y+=p.vy;p.vy+=.08;p.life-=1;}particles=particles.filter(p=>p.life>0);draw();requestAnimationFrame(loop);}
-hitBtn.onclick=hit;runBtn.onclick=run;backBtn.onclick=back;
-canvas.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')hit();});
-updateUI();draw();requestAnimationFrame(loop);
+function loop(t){const dt=Math.min(32,t-last||16);last=t;if(state==="play"&&ball.active){ball.x+=ball.vx*dt/16;ball.y+=ball.vy*dt/16;ball.vy+=.055*dt/16;if(ball.y>510){ball.active=false;message.textContent="⚾ PELOTA FUERA • TOCA BATEAR"}}if(swing>0)swing=Math.max(0,swing-.09*dt/16);draw();requestAnimationFrame(loop)}
+hitBtn.onclick=hit;runBtn.onclick=run;backBtn.onclick=back;canvas.addEventListener("pointerdown",e=>{if(e.pointerType==="touch")hit()});
+ui();draw();requestAnimationFrame(loop);
