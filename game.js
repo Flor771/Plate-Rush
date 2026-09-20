@@ -3,7 +3,7 @@ const scoreEl=document.getElementById("score"),outsEl=document.getElementById("o
 const hitBtn=document.getElementById("hit"),runBtn=document.getElementById("run"),backBtn=document.getElementById("back");
 
 let state="menu",score=0,outs=0,round=1,streak=0,best=0,games=0,xp=0,last=0;
-let pitch=0,hitQuality=0,shake=0,flash=0,celebrate=0,camX=0,camY=0,camZoom=1,runnerBase=0;
+let pitch=0,hitQuality=0,shake=0,flash=0,celebrate=0,camX=0,camY=0,camZoom=1,runnerBase=0,runnerT=0,fieldTarget={x:450,y:250},fieldRun=0;
 let ball={x:0,y:0,z:0,v:0,active:false,trail:[]};
 let batter={swing:0,follow:0},pitcher={wind:0},particles=[],audio=null;
 const W=900,H=560,HOME={x:450,y:485},BASES=[{x:735,y:325},{x:450,y:125},{x:165,y:325}];
@@ -54,8 +54,10 @@ function swing(){
 }
 function run(){
  if(state!=="running")return;
- state="celebrate";runnerBase=1;score+=1;xp+=8;celebrate=1;burst(BASES[0].x,BASES[0].y,30,"star");
- message.textContent="🏃 ¡CORRE! ¡LLEGASTE A 1B!";beep(900,.08);ui();
+ state="runningBase";runnerT=0;message.textContent="🏃 ¡CORRE! EL CORREDOR VA A 1B…";beep(900,.08);
+}
+function finishBase(){
+ runnerBase=1;score+=1;xp+=8;celebrate=1;state="celebrate";burst(BASES[0].x,BASES[0].y,34,"star");message.textContent="🏃 ¡LLEGASTE A 1B!";ui();
 }
 function back(){
  if(state!=="returning")return;
@@ -125,6 +127,12 @@ function drawField(){
  ctx.save();ctx.translate(447,397);ctx.rotate(-1.02+s*1.65);ctx.fillStyle="#87582e";ctx.fillRect(-7,-105,14,113);ctx.fillStyle="#e0b36b";ctx.fillRect(-11,-112,22,12);ctx.restore();
  // runner on base
  if(runnerBase){const b=runnerBase===1?BASES[0]:HOME;player(b.x,b.y-10,"#f0f4f1","#173e29",.45,0)}
+ if(state==="running"||state==="runningBase"){
+   const t=state==="runningBase"?runnerT:runnerT;
+   const x=HOME.x+(BASES[0].x-HOME.x)*Math.min(1,t);
+   const y=HOME.y+(BASES[0].y-HOME.y)*Math.min(1,t);
+   player(x,y-12,"#f0f4f1","#173e29",.46,Math.sin(performance.now()/90)*.5);
+ }
  // contact zone
  if(state==="pitching"){ctx.strokeStyle="#ffffff66";ctx.lineWidth=2;ctx.setLineDash([7,7]);ctx.strokeRect(374,325,152,86);ctx.setLineDash([])}
  ctx.restore();
@@ -144,6 +152,12 @@ function banners(){
  if(state==="hitFly"){
    ctx.fillStyle="#fff";ctx.font="1000 31px system-ui";ctx.fillText(hitQuality===3?"🔥 HOME RUN!":"💥 BATAZO!",450,65);
    ctx.font="800 14px system-ui";ctx.fillStyle="#d9eadf";ctx.fillText("CAMARA SIGUIENDO LA PELOTA",450,88);
+ }
+ if(state==="running" && hitQuality!==3){
+   // ball is fielded while the runner advances; a visible fielder chases the hit.
+   fieldRun=Math.min(1,fieldRun+dt/1200);
+   fieldTarget={x:hitQuality===2?700:610,y:hitQuality===2?270:240};
+   if(fieldRun>=1){state="running";message.textContent="⚾ ¡FILDEADOR ENTRA EN JUGADA! TOCA CORRER";ui();}
  }
  if(state==="celebrate"){ctx.fillStyle="#fff";ctx.font="1000 31px system-ui";ctx.fillText("🏆 ¡CELEBRACIÓN!",450,68)}
  ctx.restore();
@@ -199,12 +213,20 @@ function update(dt){
    ball.trail.unshift({x:ball.x,y:ball.y,r:ball.r});ball.trail=ball.trail.slice(0,12);
    camX=-dir*95*q;camY=20*q;camZoom=1+.10*q;
    if(q>=1){
-     state="running";runnerBase=0;camX=0;camY=0;camZoom=1;
+     state="running";runnerBase=0;runnerT=0;camX=0;camY=0;camZoom=1;
      message.textContent=hitQuality===3?"🏆 ¡HOME RUN! CELEBRACIÓN EN EL BARRIO":"🏃 ¡LA PELOTA ESTÁ EN JUEGO! TOCA CORRER";
      ball.active=false;ui();
    }
  }
- if(state==="running"){camX=35*Math.sin(performance.now()/120);if(batter.swing>0)batter.swing=Math.max(0,batter.swing-d*.08)}
+ if(state==="running"){
+   camX=28*Math.sin(performance.now()/110);fieldRun+=dt/1000;
+   if(hitQuality===3){runnerT=Math.min(1,runnerT+dt/1150);if(runnerT>=1){runnerBase=0;state="celebrate";celebrate=1;score+=3;xp+=25;burst(HOME.x,HOME.y,70,"star");message.textContent="🔥 ¡HOME RUN! ¡VUELTA COMPLETA!";ui();}}
+ }
+ if(state==="runningBase"){
+   runnerT=Math.min(1,runnerT+dt/1000);
+   camX=40*runnerT;camY=-12*runnerT;camZoom=1+.08*runnerT;
+   if(runnerT>=1){camX=0;camY=0;camZoom=1;finishBase();}
+ }
  if(state==="celebrate"){
    celebrate-=dt/1000;if(celebrate<=0){celebrate=0;
      if(runnerBase===1){state="returning";message.textContent="🏃 ¡ESTÁS EN 1B! TOCA REGRESAR PARA COMPLETAR LA CARRERA"}
