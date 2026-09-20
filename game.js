@@ -1,44 +1,25 @@
 const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
-const scoreEl=document.getElementById("score"),message=document.getElementById("message");
+const scoreEl=document.getElementById("score"),outsEl=document.getElementById("outs"),message=document.getElementById("message"),streakEl=document.getElementById("streak"),bestEl=document.getElementById("best"),gamesEl=document.getElementById("games"),xpEl=document.getElementById("xp"),xpbar=document.getElementById("xpbar"),levelEl=document.getElementById("level"),missionEl=document.getElementById("mission"),speedEl=document.getElementById("speed"),inningEl=document.getElementById("inning");
 const hitBtn=document.getElementById("hit"),runBtn=document.getElementById("run"),backBtn=document.getElementById("back");
-let state="menu",score=0,outs=0,round=1,streak=0,runner=0,swing=0,shake=0,last=0;
-let ball={x:450,y:105,vx:0,vy:0,r:8,active:false},particles=[],audio=null;
-
-function ui(){scoreEl.textContent=score+" PTS • "+outs+"/3 OUT";document.body.dataset.state=state}
-function beep(freq,dur){try{audio=audio||new(window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=freq;o.type="sine";g.gain.value=.025;o.connect(g);g.connect(audio.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+dur);o.stop(audio.currentTime+dur)}catch(e){}}
-function serve(){ball={x:450,y:105,vx:(Math.random()<.5?-1:1)*(3+Math.random()*2),vy:2.4,r:8,active:true}}
-function reset(){state="play";score=0;outs=0;round=1;streak=0;runner=0;particles=[];message.textContent="Batea cuando la pelota entre en la zona.";serve();ui();beep(620,.08)}
-function burst(px,py,n){for(let j=0;j<n;j++){const a=Math.random()*Math.PI*2,sp=1+Math.random()*4;particles.push({x:px,y:py,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:35+Math.random()*20})}}
-function hit(){
- if(state==="menu"||state==="result")reset();
- if(state!=="play")return;
- const good=Math.abs(ball.x-450)<72;
- swing=1;ball.active=false;
- if(good){score+=2;streak++;burst(450,105,22);message.textContent=streak>1?"🔥 RACHA x"+streak+" • ¡CORRE!":"💥 ¡BATAZO LIMPIO! • ¡CORRE!";beep(740,.11);state="run"}
- else{outs++;streak=0;message.textContent=outs>=3?"🏁 TRES OUT • FIN DEL JUEGO":"❌ ¡FALLASTE! • SIGUIENTE LANZAMIENTO";beep(180,.12);state=outs>=3?"result":"play";setTimeout(()=>{if(state==="play")serve()},650)}
- ui()
-}
-function run(){if(state==="run"){runner=1;score++;burst(755,300,12);message.textContent="🏃 ¡LLEGASTE! • REGRESA A LA PLACA";beep(880,.08);state="return";ui()}}
-function back(){if(state==="return"){runner=0;round++;score++;message.textContent="⚡ ¡CARRERA COMPLETADA! • PRÓXIMO LANZAMIENTO";beep(620,.06);state="play";ui();setTimeout(()=>{if(state==="play")serve()},500)}}
+let state="menu",score=0,outs=0,round=1,streak=0,best=0,games=0,xp=0,runner=0,swing=0,flash=0,shake=0,last=0,contact=0;
+let ball={x:450,y:115,vx:0,vy:0,r:8,active:false,speed:0},particles=[],audio=null;
+function ui(){scoreEl.textContent=score;outsEl.textContent=outs+" OUT";streakEl.textContent=streak;bestEl.textContent=best;gamesEl.textContent=games;missionEl.textContent=Math.min(score,5)+"/5";inningEl.textContent=round+"ª ENTRADA";xpEl.textContent=xp%100+"/100 XP";xpbar.style.width=(xp%100)+"%";levelEl.textContent=Math.floor(xp/100)+1;speedEl.textContent=ball.speed?Math.round(ball.speed*18)+" km/h":"--"}
+function beep(f,d){try{audio=audio||new(window.AudioContext||window.webkitAudioContext)();let o=audio.createOscillator(),g=audio.createGain();o.type="square";o.frequency.value=f;g.gain.value=.025;o.connect(g);g.connect(audio.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+d);o.stop(audio.currentTime+d)}catch(e){}}
+function serve(){let v=3.1+Math.random()*1.8;ball={x:450,y:96,vx:(Math.random()-.5)*1.7,vy:v,r:8,active:true,speed:v};contact=0}
+function reset(){state="play";score=0;outs=0;round=1;streak=0;runner=0;particles=[];message.textContent="Observa la pelota y toca BATEAR en la zona de contacto.";serve();ui();beep(620,.08)}
+function burst(x,y,n){for(let i=0;i<n;i++){let a=Math.random()*Math.PI*2,s=1+Math.random()*5;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:35+Math.random()*30})}}
+function hit(){if(state==="menu"||state==="result")reset();if(state!=="play")return;let zone=Math.abs(ball.x-450)<76&&ball.y>320&&ball.y<430;let timing=Math.abs(ball.y-365);swing=1;ball.active=false;flash=1;shake=zone?7:3;
+ if(zone){score+=2;streak++;best=Math.max(best,streak);xp+=12;contact=1;burst(450,365,28);message.textContent=streak>1?"🔥 ¡PERFECTO! RACHA x"+streak+" • ¡CORRE!":"💥 ¡BATAZO LIMPIO! • ¡CORRE!";beep(760,.13);state="run"}
+ else{outs++;streak=0;xp+=3;message.textContent=outs>=3?"🏁 TRES OUT • PARTIDO TERMINADO":"❌ STRIKE • PREPÁRATE PARA EL SIGUIENTE LANZAMIENTO";beep(170,.12);state=outs>=3?"result":"play";if(state==="play")setTimeout(()=>{if(state==="play")serve()},650)}
+ ui()}
+function run(){if(state!=="run")return;runner=1;score++;xp+=8;burst(730,315,15);message.textContent="🏃 ¡CORRE! • LLEGASTE A 1B";beep(880,.08);state="return";ui()}
+function back(){if(state!=="return")return;runner=0;round++;score++;xp+=10;message.textContent="⚡ ¡CARRERA! • SIGUIENTE LANZAMIENTO";beep(620,.07);state="play";ui();setTimeout(()=>{if(state==="play")serve()},500)}
 function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill()}
-function plate(px,py){ctx.save();ctx.translate(px,py);ctx.rotate(.16);ctx.fillStyle="#fff";ctx.strokeStyle="#bfc9c4";ctx.lineWidth=3;rr(-34,-19,68,38,8);ctx.stroke();ctx.restore()}
-function player(px,py,col,active){ctx.save();ctx.translate(px,py);ctx.fillStyle="#0003";ctx.beginPath();ctx.ellipse(0,18,24,7,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=col;ctx.beginPath();ctx.arc(0,-30,15,0,Math.PI*2);ctx.fill();rr(-12,-15,24,39,7);ctx.fillRect(-21,0,9,25);ctx.fillRect(12,0,9,25);if(active){ctx.strokeStyle="#fff";ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,-30,22,0,Math.PI*2);ctx.stroke()}ctx.restore()}
-function field(){
-ctx.fillStyle="#0d6938";ctx.fillRect(0,0,900,520);
-for(let j=0;j<10;j++){ctx.fillStyle=j%2?"#11713c":"#0d6938";ctx.fillRect(0,j*52,900,52)}
-ctx.fillStyle="#d3a36a";ctx.beginPath();ctx.moveTo(450,65);ctx.lineTo(820,300);ctx.lineTo(670,520);ctx.lineTo(230,520);ctx.lineTo(80,300);ctx.closePath();ctx.fill();
-ctx.fillStyle="#b8834d";ctx.beginPath();ctx.arc(450,310,115,0,Math.PI*2);ctx.fill();
-ctx.strokeStyle="#ffffff88";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(450,70);ctx.lineTo(770,300);ctx.lineTo(645,500);ctx.moveTo(450,70);ctx.lineTo(130,300);ctx.lineTo(255,500);ctx.stroke();
-plate(140,300);plate(760,300);player(140,275,"#f5f7fa",runner===0);player(760,275,"#ffd447",runner===1)
-}
-function overlay(){ctx.fillStyle="#0009";rr(18,18,330,62,16);ctx.fillStyle="#fff";ctx.font="900 21px system-ui";ctx.fillText("PLATE RUSH",34,47);ctx.font="800 11px system-ui";ctx.fillStyle="#d7e5dc";ctx.fillText("RONDA "+round+" • THE DOMINICAN STREET GAME",34,66);if(state==="menu"||state==="result"){ctx.fillStyle="#06110ded";ctx.fillRect(0,0,900,520);ctx.textAlign="center";ctx.fillStyle="#fff";ctx.font="900 58px system-ui";ctx.fillText("PLATE RUSH",450,190);ctx.font="800 18px system-ui";ctx.fillStyle="#b9d8c5";ctx.fillText("THE DOMINICAN STREET GAME",450,224);ctx.font="900 24px system-ui";ctx.fillText(state==="menu"?"TOCA BATEAR PARA JUGAR":"PUNTUACIÓN: "+score,450,310);ctx.font="600 15px system-ui";ctx.fillStyle="#94aa9f";ctx.fillText(state==="menu"?"Batea • Corre • Regresa • Busca tu mejor racha":"Toca BATEAR para una nueva partida",450,345);ctx.textAlign="left"}}
-function draw(){
-ctx.clearRect(0,0,900,520);ctx.save();if(shake>0){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.88}
-field();
-if(ball.active){ctx.fillStyle="#fff";ctx.shadowBlur=12;ctx.shadowColor="#fff";ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0}
-ctx.save();ctx.translate(450,382);ctx.rotate(-.72+swing*.9);ctx.fillStyle="#87572e";ctx.fillRect(-8,-78,16,106);ctx.fillStyle="#e3b46a";ctx.fillRect(-10,-84,20,12);ctx.restore();overlay();ctx.restore();
-for(const p of particles){ctx.globalAlpha=Math.max(0,p.life/55);ctx.fillStyle="#fff";ctx.fillRect(p.x,p.y,5,5);p.x+=p.vx;p.y+=p.vy;p.vy+=.08;p.life--}ctx.globalAlpha=1
-}
-function loop(t){const dt=Math.min(32,t-last||16);last=t;if(state==="play"&&ball.active){ball.x+=ball.vx*dt/16;ball.y+=ball.vy*dt/16;ball.vy+=.055*dt/16;if(ball.y>510){ball.active=false;message.textContent="⚾ PELOTA FUERA • TOCA BATEAR"}}if(swing>0)swing=Math.max(0,swing-.09*dt/16);draw();requestAnimationFrame(loop)}
-hitBtn.onclick=hit;runBtn.onclick=run;backBtn.onclick=back;canvas.addEventListener("pointerdown",e=>{if(e.pointerType==="touch")hit()});
-ui();draw();requestAnimationFrame(loop);
+function plate(x,y,s=1){ctx.save();ctx.translate(x,y);ctx.rotate(.78);ctx.fillStyle="#f5f7f5";ctx.shadowBlur=5;ctx.shadowColor="#0005";ctx.fillRect(-15*s,-15*s,30*s,30*s);ctx.restore()}
+function player(x,y,body,accent,active){ctx.save();ctx.translate(x,y);ctx.fillStyle="#0006";ctx.beginPath();ctx.ellipse(0,24,30,8,0,0,Math.PI*2);ctx.fill();ctx.fillStyle="#d99d6a";ctx.beginPath();ctx.arc(0,-37,16,0,Math.PI*2);ctx.fill();ctx.fillStyle=body;rr(-17,-20,34,43,8);ctx.fillStyle=accent;ctx.fillRect(-17,-5,34,7);ctx.fillStyle=body;ctx.fillRect(-27,3,10,29);ctx.fillRect(17,3,10,29);ctx.strokeStyle="#d99d6a";ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(-14,2);ctx.lineTo(-25,15);ctx.moveTo(14,2);ctx.lineTo(25,15);ctx.stroke();ctx.fillStyle=accent;ctx.beginPath();ctx.arc(0,-54,17,Math.PI,Math.PI*2);ctx.fill();if(active){ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,-37,24,0,Math.PI*2);ctx.stroke()}ctx.restore()}
+function field(){ctx.fillStyle="#0b6836";ctx.fillRect(0,0,900,560);for(let i=0;i<14;i++){ctx.fillStyle=i%2?"#0e713b":"#0b6836";ctx.fillRect(0,i*40,900,40)}ctx.fillStyle="#202b25";ctx.fillRect(0,0,900,105);ctx.fillStyle="#31423a";for(let i=0;i<18;i++)ctx.fillRect(i*55,20+(i%3)*9,32,46);ctx.fillStyle="#d5a46b";ctx.beginPath();ctx.moveTo(450,82);ctx.lineTo(850,325);ctx.lineTo(690,560);ctx.lineTo(210,560);ctx.lineTo(50,325);ctx.closePath();ctx.fill();ctx.fillStyle="#bc8751";ctx.beginPath();ctx.arc(450,325,118,0,Math.PI*2);ctx.fill();ctx.strokeStyle="#fff9";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(450,82);ctx.lineTo(820,325);ctx.lineTo(675,555);ctx.moveTo(450,82);ctx.lineTo(80,325);ctx.lineTo(225,555);ctx.stroke();plate(450,495,1.15);plate(760,325,.85);plate(140,325,.85);plate(450,145,.85);player(450,425,"#eef3f0","#173f29",true);player(450,125,"#e5c84e","#42340c",false);player(760,300,"#e5c84e","#42340c",runner===1);player(140,300,"#eef3f0","#173f29",runner===0);player(650,235,"#e5c84e","#42340c",false);player(255,235,"#eef3f0","#173f29",false)}
+function drawBall(){if(!ball.active)return;ctx.save();ctx.shadowBlur=15;ctx.shadowColor="#fff";ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fill();ctx.restore();ctx.strokeStyle="#d95c54";ctx.lineWidth=1;ctx.beginPath();ctx.arc(ball.x,ball.y,5,-.7,.7);ctx.stroke()}
+function overlay(){if(state==="menu"||state==="result"){ctx.fillStyle="#020805dd";ctx.fillRect(0,0,900,560);ctx.textAlign="center";ctx.fillStyle="#fff";ctx.font="1000 58px system-ui";ctx.fillText("PLATE RUSH",450,190);ctx.font="900 17px system-ui";ctx.fillStyle="#a8c6b5";ctx.fillText("THE DOMINICAN STREET GAME",450,225);ctx.font="1000 24px system-ui";ctx.fillStyle="#fff";ctx.fillText(state==="menu"?"TOCA BATEAR PARA JUGAR":"PUNTUACIÓN "+score,450,310);ctx.font="700 14px system-ui";ctx.fillStyle="#8ba296";ctx.fillText(state==="menu"?"Batea • Corre • Regresa • Conquista la calle":"Toca BATEAR para volver a jugar",450,345);ctx.textAlign="left"}}
+function draw(){ctx.clearRect(0,0,900,560);ctx.save();if(shake>0){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.86}field();drawBall();ctx.save();ctx.translate(450,425);ctx.rotate(-.75+swing*.95);ctx.fillStyle="#8b5a30";ctx.fillRect(-8,-92,16,104);ctx.fillStyle="#e0b36b";ctx.fillRect(-11,-98,22,12);ctx.restore();if(contact){ctx.fillStyle="#fff";ctx.font="1000 26px system-ui";ctx.fillText("PERFECT!",392,260)}overlay();ctx.restore();for(let p of particles){ctx.globalAlpha=Math.max(0,p.life/60);ctx.fillStyle="#fff";ctx.fillRect(p.x,p.y,5,5);p.x+=p.vx;p.y+=p.vy;p.vy+=.08;p.life--}ctx.globalAlpha=1;if(flash>0){ctx.fillStyle="rgba(255,255,255,"+flash*.12+")";ctx.fillRect(0,0,900,560);flash*=.82}}
+function loop(t){let dt=Math.min(32,t-last||16);last=t;if(state==="play"&&ball.active){ball.x+=ball.vx*dt/16;ball.y+=ball.vy*dt/16;ball.vy+=.04*dt/16;if(ball.y>540){ball.active=false;message.textContent="⚾ PELOTA FUERA • TOCA BATEAR"}}if(swing>0)swing=Math.max(0,swing-.09*dt/16);ui();draw();requestAnimationFrame(loop)}
+hitBtn.onclick=hit;runBtn.onclick=run;backBtn.onclick=back;canvas.addEventListener("pointerdown",e=>{if(e.pointerType==="touch")hit()});ui();draw();requestAnimationFrame(loop);
